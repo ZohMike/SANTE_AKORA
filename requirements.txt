@@ -1,6 +1,7 @@
 streamlit
-supabase-py
+supabase
 pandas
 numpy
 python-dotenv
 requests
+
