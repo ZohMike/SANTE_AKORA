@@ -1,3 +1,4 @@
+pip install supabase-py
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
@@ -932,4 +933,5 @@ elif module_selection == "🔎 Audit":
 
 # Footer (Affiché une seule fois)
 st.markdown("---")
+
 st.caption("💡 Application de gestion et d'audit des barèmes d'assurance santé - Propulsée par Supabase")
