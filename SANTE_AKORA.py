@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from supabase import create_client, Client
+from supabase import create_client
 import io 
 from datetime import datetime
 
@@ -934,4 +934,5 @@ elif module_selection == "🔎 Audit":
 st.markdown("---")
 
 st.caption("💡 Application de gestion et d'audit des barèmes d'assurance santé - Propulsée par Supabase")
+
 
