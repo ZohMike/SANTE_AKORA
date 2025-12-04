@@ -1,0 +1,223 @@
+/* Import Font Awesome pour les icônes */
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
+/* Cacher complètement la sidebar */
+[data-testid="stSidebar"] {
+    display: none;
+}
+
+/* Réduire l'espace en haut */
+.block-container {
+    padding-top: 1rem !important;
+}
+
+/* Fond général de l'app en blanc */
+.stApp {
+    background-color: #ffffff;
+}
+
+/* Container principal pour header */
+.main-header {
+    background-color: #f8f9fa;
+    padding: 1rem 2rem;
+    margin-bottom: 0;
+    border-radius: 0.5rem 0.5rem 0 0;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.header-logo {
+    color: #1a1d29;
+    font-size: 1.4rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Style des tabs Streamlit - THÈME CLAIR */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0;
+    background-color: #f8f9fa;
+    padding: 0 2rem;
+    margin: 0;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 50px;
+    background-color: transparent;
+    border: none;
+    color: #6c757d;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0 2rem;
+    border-radius: 0;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: #e9ecef;
+    color: #1a1d29;
+}
+
+.stTabs [aria-selected="true"] {
+    background-color: transparent;
+    color: #1a1d29 !important;
+    font-weight: 600 !important;
+    border-bottom: 3px solid #2196F3;
+}
+
+/* Info utilisateur dans le header */
+.user-info {
+    position: absolute;
+    top: 1.5rem;
+    right: 2rem;
+    color: #495057;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Améliorer la lisibilité générale */
+h1, h2, h3 {
+    color: #1a1d29 !important;
+}
+
+/* Cards et containers */
+[data-testid="stContainer"] {
+    background-color: #ffffff;
+    border: 1px solid #e9ecef;
+}
+
+/* Style pour les icônes */
+.icon {
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-right: 0.5rem;
+}
+
+/* Table container */
+.custom-table-container {
+    max-height: 600px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+}
+
+/* Table */
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px; /* Taille par défaut pour les en-têtes */
+}
+
+/* Headers - Fond personnalisé */
+.custom-table thead tr {
+    background-color: #145d33; /* Couleur verte foncée */
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.custom-table thead th {
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+}
+
+/* Lignes - Alternance */
+.custom-table tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+.custom-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* Hover */
+.custom-table tbody tr:hover {
+    background-color: #e3f2fd;
+}
+
+/* Cellules du contenu - AJUSTEMENT DE LA TAILLE ICI */
+.custom-table tbody td {
+    padding: 10px 8px;
+    color: #495057;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 8px; /* <-- TAILLE PLUS PETITE POUR LE CONTENU */
+}
+
+/* Style des selectbox dans le tableau */
+.custom-table select {
+    padding: 4px 8px;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    background-color: white;
+    font-size: 0.8rem;
+    cursor: pointer;
+    min-width: 160px;
+}
+
+.custom-table select:hover {
+    border-color: #2196F3;
+}
+
+.custom-table select:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
+}
+
+/* Badges de statut */
+.badge-finalise {
+    background-color: #28a745;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-en-cours {
+    background-color: #ffc107;
+    color: #000;
+    padding: 4px 8px;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-en-attente {
+    background-color: #17a2b8;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-annule {
+    background-color: #dc3545;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+#btn-calc-particulier button {
+    background-color: #28a745 !important;
+    color: white !important;
+    border: none !important;
+    padding: 0.75rem !important;
+    border-radius: 0.5rem !important;
+    font-weight: 600 !important;
+    width: 100% !important;
+    cursor: pointer !important;
+}
+#btn-calc-particulier button:hover {
+    background-color: #218838 !important;
+}
