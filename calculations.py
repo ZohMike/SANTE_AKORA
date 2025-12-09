@@ -232,7 +232,9 @@ def calculer_prime_particuliers(
     accessoires_manuels: Optional[float] = None,
     accessoire_plus: float = 0,
     montant_grossesse_manuel: Optional[float] = None,
-    surprime_manuelle_pourcent: float = 0.0
+    surprime_manuelle_pourcent: float = 0.0,
+    prime_lsp_manuelle: Optional[float] = None,
+    prime_assist_psy_manuelle: Optional[float] = None
 ) -> Dict[str, Any]:
     """Calcule la prime pour un contrat particulier avec toutes les surcharges applicables."""
     
@@ -280,12 +282,16 @@ def calculer_prime_particuliers(
         # Ajouter les accessoires supplémentaires
         accessoires_finaux += accessoire_plus
         
+        # Utiliser les valeurs manuelles pour LSP et Assistance Psy
+        prime_lsp_finale = prime_lsp_manuelle if prime_lsp_manuelle is not None else 20000
+        prime_assist_psy_finale = prime_assist_psy_manuelle if prime_assist_psy_manuelle is not None else 35000
+        
         # Calcul final avec les valeurs manuelles
         resultat = calculer_prime_avec_parametres(
             prime_nette_base=prime_nette_ajustee,
             accessoires=accessoires_finaux,
-            prime_lsp=20000,  # Valeur par défaut pour LSP
-            prime_assist_psy=35000,  # Valeur par défaut pour assistance psy
+            prime_lsp=prime_lsp_finale,
+            prime_assist_psy=prime_assist_psy_finale,
             reduction=reduction_commerciale,
             surprime=surprime_totale,
             duree_contrat=duree_contrat,
