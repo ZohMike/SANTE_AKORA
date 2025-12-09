@@ -99,7 +99,9 @@ def calculer_prime_particuliers(
     accessoires_manuels: Optional[float] = None,
     accessoire_plus: float = 0,
     montant_grossesse_manuel: Optional[float] = None,
-    surprime_manuelle_pourcent: float = 0.0
+    surprime_manuelle_pourcent: float = 0.0,
+    prime_lsp_manuelle: Optional[float] = None,
+    prime_assist_psy_manuelle: Optional[float] = None
 ) -> Dict[str, Any]:
     """Wrapper vers calculations.calculer_prime_particuliers."""
     return calc_calculer_prime_particuliers(
@@ -117,6 +119,8 @@ def calculer_prime_particuliers(
         accessoire_plus=accessoire_plus,
         montant_grossesse_manuel=montant_grossesse_manuel,
         surprime_manuelle_pourcent=surprime_manuelle_pourcent,
+        prime_lsp_manuelle=prime_lsp_manuelle,
+        prime_assist_psy_manuelle=prime_assist_psy_manuelle,
     )
 
 def calculer_prime_corporate_rapide(
@@ -2218,10 +2222,32 @@ with tab_cotation:
                             help="Frais accessoires"
                         )
                         
+                        col_man3, col_man4 = st.columns(2)
+                        
+                        prime_lsp_manuelle = col_man3.number_input(
+                            "Prime LSP (FCFA)",
+                            min_value=0.0,
+                            value=20000.0,
+                            step=1000.0,
+                            key=f"prime_lsp_manuel_{bareme_key}",
+                            help="Prime Lettre de Sortie Provisoire"
+                        )
+                        
+                        prime_assist_psy_manuelle = col_man4.number_input(
+                            "Prime Assistance Psychologique (FCFA)",
+                            min_value=0.0,
+                            value=35000.0,
+                            step=1000.0,
+                            key=f"prime_assist_psy_manuel_{bareme_key}",
+                            help="Prime d'assistance psychologique"
+                        )
+                        
                         st.session_state.baremes_speciaux_info[bareme_key] = {
                             'plafond_personne': plafond_personne,
                             'plafond_famille': plafond_famille,
-                            'taux_couverture': taux_couverture
+                            'taux_couverture': taux_couverture,
+                            'prime_lsp': prime_lsp_manuelle,
+                            'prime_assist_psy': prime_assist_psy_manuelle
                         }
                         
                         primes_nettes_manuelles[bareme_key] = prime_manuelle
@@ -2358,6 +2384,14 @@ with tab_cotation:
                                     prime_nette_man = primes_nettes_manuelles.get(bareme_key, None)
                                     accessoires_man = accessoires_manuels_dict.get(bareme_key, None)
                                     
+                                    # Récupérer les primes LSP et Assistance Psy pour barème spécial
+                                    prime_lsp_man = None
+                                    prime_assist_psy_man = None
+                                    if bareme_key == 'bareme_special':
+                                        bareme_info = st.session_state.baremes_speciaux_info.get(bareme_key, {})
+                                        prime_lsp_man = bareme_info.get('prime_lsp')
+                                        prime_assist_psy_man = bareme_info.get('prime_assist_psy')
+                                    
                                     resultat = calculer_prime_particuliers(
                                         produit_key=bareme_key,
                                         type_couverture=type_couv_bareme,
@@ -2372,7 +2406,9 @@ with tab_cotation:
                                         accessoires_manuels=accessoires_man,
                                         accessoire_plus=accessoire_plus,
                                         montant_grossesse_manuel=montant_grossesse_man,
-                                        surprime_manuelle_pourcent=surprime_globale_pourcent
+                                        surprime_manuelle_pourcent=surprime_globale_pourcent,
+                                        prime_lsp_manuelle=prime_lsp_man,
+                                        prime_assist_psy_manuelle=prime_assist_psy_man
                                     )
                                     # Stocker avec index comme clé
                                     resultats_multi[idx] = {
@@ -3336,12 +3372,13 @@ with tab_cotation:
                         if activer_forcage_corp:
                             prime_nette_originale = resultat_micro['prime_nette_totale']
                             accessoires_originaux = resultat_micro['accessoires']
+                            services_originaux = resultat_micro.get('services', 0)
                             prime_ttc_originale = resultat_micro['prime_ttc_totale']
                             prime_finale_originale = prime_ttc_originale * (100 - reduction_finale) / 100
                             
-                            st.markdown("**Saisissez la Prime Nette et les Accessoires :**")
+                            st.markdown("**Saisissez la Prime Nette, les Accessoires et les Services :**")
                             
-                            col_force1, col_force2, col_force3 = st.columns([1, 1, 1])
+                            col_force1, col_force2 = st.columns(2)
                             
                             with col_force1:
                                 prime_nette_forcee = st.number_input(
@@ -3363,17 +3400,44 @@ with tab_cotation:
                                     help="Saisissez les accessoires totaux que vous souhaitez appliquer"
                                 )
                             
+                            col_force3, col_force4 = st.columns(2)
+                            
                             with col_force3:
+                                prime_lsp_forcee = st.number_input(
+                                    "Prime LSP Totale Forcée (FCFA)",
+                                    min_value=0.0,
+                                    value=float(services_originaux / 2),  # Approximation: services / 2
+                                    step=1000.0,
+                                    key="prime_lsp_forcee_corp",
+                                    help="Prime LSP totale pour tous les assurés"
+                                )
+                            
+                            with col_force4:
+                                prime_assist_psy_forcee = st.number_input(
+                                    "Prime Assistance Psy Totale Forcée (FCFA)",
+                                    min_value=0.0,
+                                    value=float(services_originaux / 2),  # Approximation: services / 2
+                                    step=1000.0,
+                                    key="prime_assist_psy_forcee_corp",
+                                    help="Prime d'assistance psychologique totale pour tous les assurés"
+                                )
+                            
+                            # Afficher les valeurs originales
+                            st.markdown("**Valeurs Originales**")
+                            col_orig1, col_orig2, col_orig3 = st.columns(3)
+                            with col_orig1:
                                 st.metric("Prime Nette Originale", format_currency(prime_nette_originale))
+                            with col_orig2:
                                 st.metric("Accessoires Originaux", format_currency(accessoires_originaux))
-                                st.metric("Prime TTC Originale", format_currency(prime_finale_originale))
+                            with col_orig3:
+                                st.metric("Services Originaux", format_currency(services_originaux))
                             
                             prime_ttc_taxable_forcee = prime_nette_forcee + accessoires_forces
                             taxe_forcee = prime_ttc_taxable_forcee * TAUX_TAXE_CORPORATE
                             prime_ttc_taxable_avec_taxe = prime_ttc_taxable_forcee + taxe_forcee
                             
-                            services_totaux = resultat_micro.get('services', 0)
-                            prime_ttc_totale_forcee = prime_ttc_taxable_avec_taxe + services_totaux
+                            services_totaux_forces = prime_lsp_forcee + prime_assist_psy_forcee
+                            prime_ttc_totale_forcee = prime_ttc_taxable_avec_taxe + services_totaux_forces
                             prime_finale_forcee = prime_ttc_totale_forcee * (100 - reduction_finale) / 100
                             
                             st.info(f"**Prime TTC Totale Calculée (après forçage) :** {format_currency(prime_finale_forcee)}")
@@ -3403,6 +3467,7 @@ with tab_cotation:
                                     resultat_micro['accessoires'] = accessoires_forces
                                     resultat_micro['taxe'] = taxe_forcee
                                     resultat_micro['prime_ttc_taxable'] = prime_ttc_taxable_avec_taxe
+                                    resultat_micro['services'] = services_totaux_forces
                                     resultat_micro['prime_ttc_totale'] = prime_ttc_totale_forcee
                                     resultat_micro['prime_forcee'] = True
                                     resultat_micro['motif_forcage'] = motif_forcage
