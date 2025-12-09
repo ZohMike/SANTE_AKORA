@@ -26,11 +26,11 @@ from ui_components import display_member_form
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_RIGHT
 
 
 # --- CONFIGURATION DE LA PAGE ---
@@ -520,41 +520,325 @@ def charger_infos_client(type_couv: str):
 # ==============================================================================
 
 def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], nb_options: int) -> bytes:
-    """Génère un PDF professionnel à partir du DataFrame de proposition."""
+    """Génère un PDF professionnel complet sur 4 pages."""
+    from reportlab.platypus import Image
+    import os
+    
     buffer = io.BytesIO()
+    
+    # Fonction pour ajouter le bas de page à chaque page
+    def ajouter_bas_de_page(canvas_obj, doc):
+        """Ajoute le bas de page à chaque page du document."""
+        canvas_obj.saveState()
+        
+        # Vérifier si l'image du bas de page existe
+        if os.path.exists('bas_de_page.png'):
+            try:
+                # Positionner l'image en bas de page sur toute la largeur
+                page_width, page_height = A4
+                img_width = page_width  # Toute la largeur de la page
+                img_height = 0.5*cm  # Hauteur de l'image
+                x_position = 0  # Commencer depuis le bord gauche
+                y_position = 0  # Position depuis le bas (bord inférieur)
+                
+                canvas_obj.drawImage('bas_de_page.png', 
+                                   x_position, 
+                                   y_position, 
+                                   width=img_width, 
+                                   height=img_height,
+                                   preserveAspectRatio=False,  # Étirer pour prendre toute la largeur
+                                   mask='auto')
+            except Exception as e:
+                # En cas d'erreur, ne rien afficher
+                pass
+        
+        canvas_obj.restoreState()
     
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
         rightMargin=1.5*cm,
         leftMargin=1.5*cm,
-        topMargin=2*cm,
-        bottomMargin=2*cm
+        topMargin=0.4*cm,  # Réduire davantage la marge du haut
+        bottomMargin=2.5*cm  # Marge du bas pour le footer pleine largeur
     )
     
     styles = getSampleStyleSheet()
+    
+    # Styles
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
-        fontSize=18,
-        textColor=colors.HexColor('#495057'),
-        spaceAfter=30,
+        fontSize=16,
+        textColor=colors.HexColor('#1a1a1a'),
+        spaceAfter=20,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
+    )
+    
+    section_title_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['Heading2'],
+        fontSize=11,
+        textColor=colors.HexColor('#1a1a1a'),
+        spaceAfter=10,
+        spaceBefore=15,
+        fontName='Helvetica-Bold'
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor('#333333'),
+        leading=12,
+        alignment=TA_JUSTIFY
+    )
+    
+    bullet_style = ParagraphStyle(
+        'BulletStyle',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor('#333333'),
+        leading=12,
+        leftIndent=20,
+        bulletIndent=10
     )
     
     # Style pour les cellules avec retours à la ligne
     cell_style = ParagraphStyle(
         'CellStyle',
         parent=styles['Normal'],
-        fontSize=8,  # Réduit de 10 à 8
+        fontSize=8,
         alignment=TA_CENTER,
         fontName='Helvetica',
-        leading=10  # Réduit de 12 à 10
+        leading=10
     )
     
-    normal_style = styles['Normal']
     elements = []
+    
+    # ==================== PAGE 1 ====================
+    
+    # Logo en haut à droite (première page seulement) - bien dimensionné
+    if os.path.exists('leadway logo all formats big-02.png'):
+        try:
+            # Créer une table pour positionner le logo à droite
+            logo_img = Image('leadway logo all formats big-02.png', width=3.5*cm, height=3*cm)
+            logo_table = Table([[logo_img]], colWidths=[18*cm])
+            logo_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'RIGHT'),
+                ('VALIGN', (0, 0), (0, 0), 'TOP'),
+            ]))
+            elements.append(logo_table)
+            elements.append(Spacer(1, 0.2*cm))  # Réduire l'espace
+        except:
+            pass
+    
+    # En-tête orange avec titre (sans logo)
+    header_table_data = [[
+        Paragraph("<b>PROPOSITION D'ASSURANCE SANTÉ</b>", 
+                 ParagraphStyle('HeaderTitle', parent=styles['Normal'], 
+                              fontSize=20, textColor=colors.whitesmoke, 
+                              fontName='Helvetica-Bold', alignment=TA_CENTER))
+    ]]
+    
+    header_table = Table(header_table_data, colWidths=[18*cm])
+    header_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#E67E22')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 18),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 18),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    
+    elements.append(header_table)
+    elements.append(Spacer(1, 0.3*cm))  # Réduire l'espace
+    
+    # En-tête avec références
+    ref_data = st.session_state.get('principal_data', {})
+    ref_table_data = [
+        ['REFERENCE:', ref_data.get('reference', 'LWA-00082-10-0735'), 'APPORTEUR:', ref_data.get('apporteur', 'ZOH BI')],
+        ['PROSPECT:', ref_data.get('prospect', 'SOCIETE AKORA'), '', '']
+    ]
+    
+    ref_table = Table(ref_table_data, colWidths=[3*cm, 5*cm, 3*cm, 5*cm])
+    ref_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f0f0f0')),
+        ('BACKGROUND', (2, 0), (2, 0), colors.HexColor('#f0f0f0')),
+    ]))
+    
+    elements.append(ref_table)
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # I. OBJET DE LA COUVERTURE
+    elements.append(Paragraph("<b>I. OBJET DE LA COUVERTURE</b>", section_title_style))
+    elements.append(Paragraph(
+        "La présente proposition constitue la complémentaire au régime de santé obligatoire de base : "
+        "la Couverture Maladie Universelle (CMU). Elle a pour objet la couverture des dépenses d'ordre "
+        "médical et chirurgical engagées à la suite de maladie, d'accident ou de maternité du souscripteur "
+        "et des personnes désignées sous le vocable « personnes assurées » conformément au barème choisi "
+        "par lui et mentionné aux conditions particulières.",
+        normal_style
+    ))
+    elements.append(Spacer(1, 0.3*cm))
+    
+    # II. MODE DE GESTION
+    elements.append(Paragraph("<b>II. MODE DE GESTION</b>", section_title_style))
+    
+    elements.append(Paragraph(
+        "<b>• Tiers payant :</b> Il est offert au titre de la formule du TIERS PAYANT un système d'identification "
+        "des assurés par carte à photo (Carte d'accès). Cette carte permettra au bénéficiaire de justifier de sa "
+        "qualité d'assuré, tant auprès des centres de santé conventionnés qu'auprès des services compétents de la "
+        "société. Sur présentation de la carte dans un établissement conventionné, à l'exception des actes nécessitant "
+        "des accords préalables de l'assureur, l'assuré bénéficiera des prestations puis règlera le montant à sa charge "
+        "(ticket modérateur).",
+        bullet_style
+    ))
+    elements.append(Spacer(1, 0.2*cm))
+    
+    elements.append(Paragraph(
+        "<b>• Système de remboursement :</b> Pour les prestations exécutées en dehors du réseau de centres conventionnés, "
+        "le gestionnaire mandaté par l'Assureur, ANKARA SERVICE, s'engagera à procéder aux remboursements des frais dans "
+        "un délai maximum de 30 jours selon les dispositions du barème de remboursement sur présentation des originaux des justificatifs.",
+        bullet_style
+    ))
+    elements.append(Spacer(1, 0.3*cm))
+    
+    # III. AGE LIMITE DE SOUSCRIPTION
+    elements.append(Paragraph("<b>III. AGE LIMITE DE SOUSCRIPTION</b>", section_title_style))
+    elements.append(Paragraph(
+        "<b>• Adultes :</b> 65 ans, avec une surprime âge à partir de 51 ans / Au-delà, garanti sur accord du directeur médical",
+        bullet_style
+    ))
+    elements.append(Paragraph(
+        "<b>• Enfants :</b> 21 ans, Jusqu'à 25 ans en cas de continuité de scolarité sous réserve de justificatifs.",
+        bullet_style
+    ))
+    elements.append(Spacer(1, 0.3*cm))
+    
+    # IV. COMPOSITION FAMILIALE
+    elements.append(Paragraph("<b>IV. COMPOSITION FAMILIALE</b>", section_title_style))
+    elements.append(Paragraph(
+        "La famille est réputée se composer de 05 personnes maximum (Adhérent principal + Conjoint légal ou non + 03 enfants). "
+        "On appelle \"Enfant supplémentaire\" tout enfant au-delà du 3ème enfant. Si enfant non biologique, fournir un certificat "
+        "de tutelle pour la prise en charge. Un questionnaire doit être impérativement renseigné et de bonne foi afin de déterminer "
+        "avec exactitude la prime correspondante.",
+        normal_style
+    ))
+    elements.append(Spacer(1, 0.3*cm))
+    
+    # V. DELAI DE CARENCE
+    elements.append(Paragraph("<b>V. DELAI DE CARENCE</b>", section_title_style))
+    elements.append(Paragraph("• 1 mois après la souscription pour les soins ordinaires ;", bullet_style))
+    elements.append(Paragraph("• 6 mois pour la lunetterie et les prothèses ;", bullet_style))
+    elements.append(Paragraph("• 9 mois pour les frais de maternité et d'accouchement ;", bullet_style))
+    elements.append(Paragraph("• 12 mois pour les maladies chroniques survenant pour la première fois pendant le contrat ;", bullet_style))
+    elements.append(Paragraph("• Abrogés en cas de continuité d'assurance, avec preuve à l'appui.", bullet_style))
+    
+    # Saut de page
+    elements.append(PageBreak())
+    
+    # ==================== PAGE 2 ====================
+    
+    # VI. PAIEMENT DE LA PRIME
+    elements.append(Paragraph("<b>VI. PAIEMENT DE LA PRIME (ARTICLE 13 CODE CIMA)</b>", section_title_style))
+    elements.append(Paragraph(
+        "La prime est payable au domicile de l'assureur ou de l'intermédiaire. La prise d'effet du contrat est subordonnée "
+        "au paiement de la prime par le souscripteur.",
+        normal_style
+    ))
+    elements.append(Spacer(1, 0.2*cm))
+    elements.append(Paragraph(
+        "Il est interdit aux entreprises d'assurance, sous peine des sanctions prévues à l'article 312, de souscrire un contrat "
+        "d'assurance dont la prime n'est pas payée ou de renouveler un contrat d'assurance dont la prime n'a pas été payée.",
+        normal_style
+    ))
+    elements.append(Spacer(1, 0.2*cm))
+    elements.append(Paragraph(
+        "Lorsqu'un chèque ou un effet remis en paiement de la prime revient impayé, l'assuré est mis en demeure de régulariser "
+        "le paiement dans un délai de huit jours ouvrés à compter de la réception de l'acte ou de la lettre de mise en demeure. "
+        "A l'expiration de ce délai, si la régularisation n'est pas effectuée, le contrat est résilié de plein droit.",
+        normal_style
+    ))
+    elements.append(Spacer(1, 0.2*cm))
+    elements.append(Paragraph(
+        "La portion de prime courue reste acquise à l'assureur, sans préjudice des éventuels frais de poursuite et de recouvrement.",
+        normal_style
+    ))
+    elements.append(Spacer(1, 0.4*cm))
+    
+    # VII. SOUSCRIPTION
+    elements.append(Paragraph("<b>VII. SOUSCRIPTION</b>", section_title_style))
+    elements.append(Paragraph("Les pièces à fournir pour la mise en place de la police sont les suivantes :", normal_style))
+    elements.append(Spacer(1, 0.2*cm))
+    elements.append(Paragraph("• La liste des personnes à assurer ;", bullet_style))
+    elements.append(Paragraph("• Les questionnaires médicaux renseignés pour chaque adhérent et les membres de sa famille ;", bullet_style))
+    elements.append(Paragraph("• Les copies des cartes CMU (ou les récépissés d'enrôlement en cas d'indisponibilité des cartes) ;", bullet_style))
+    elements.append(Paragraph("• Les CNI pour les adultes et les extraits de naissance pour les enfants ;", bullet_style))
+    elements.append(Paragraph("• Une photo couleur pour chaque personne ;", bullet_style))
+    elements.append(Paragraph("• La copie du paiement (Espèces, chèque ou virement) ;", bullet_style))
+    elements.append(Paragraph("• La preuve d'assurance antérieure afin de lever les délais de carence et assurer la continuité d'assurance.", bullet_style))
+    elements.append(Spacer(1, 0.4*cm))
+    
+    # VIII. AUTRES DISPOSITIONS
+    elements.append(Paragraph("<b>VIII. AUTRES DISPOSITIONS</b>", section_title_style))
+    elements.append(Paragraph(
+        "• L'acceptation définitive du risque est soumise à l'analyse du questionnaire médical dument renseigné et signé par le prospect ;",
+        bullet_style
+    ))
+    elements.append(Paragraph(
+        "• La cotation santé a été faite sous réserve de l'acceptation et de la souscription à d'autres risques d'accompagnement "
+        "(Auto, MRH, RC, MRP, etc...) ;",
+        bullet_style
+    ))
+    elements.append(Paragraph(
+        "• Fournir obligatoirement les statistiques antérieures avant toute souscription (client ayant bénéficié d'une couverture "
+        "sante sans interruption au cours de l'année N-1)",
+        bullet_style
+    ))
+    elements.append(Paragraph("• Validité de la cotation : 03 Mois", bullet_style))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Date et signature
+    date_signature = Paragraph(
+        f"<b>Fait à Abidjan le {datetime.now().strftime('%d %B %Y')}</b>",
+        ParagraphStyle('DateStyle', parent=normal_style, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+    )
+    elements.append(date_signature)
+    elements.append(Spacer(1, 0.3*cm))
+    
+    # Signature
+    signature_paragraph = Paragraph(
+        "<b>Pour L'ASSUREUR</b>",
+        ParagraphStyle('SignatureLabel', parent=normal_style, alignment=TA_RIGHT, fontName='Helvetica-Bold', fontSize=10)
+    )
+    elements.append(signature_paragraph)
+    elements.append(Spacer(1, 0.1*cm))  # Réduire l'espace pour coller la signature
+    
+    # Image de la signature
+    if os.path.exists('signature.png'):
+        try:
+            signature_img = Image('signature.png', width=4*cm, height=2.5*cm)  # Réduire légèrement la hauteur
+            signature_table = Table([[signature_img]], colWidths=[18*cm])  # Utiliser toute la largeur
+            signature_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'RIGHT'),
+                ('VALIGN', (0, 0), (0, 0), 'TOP'),
+            ]))
+            elements.append(signature_table)
+        except:
+            pass
+    
+    # Saut de page
+    elements.append(PageBreak())
+    
+    # ==================== PAGE 3 - TABLEAU COMPARATIF ====================
     
     title = Paragraph("OFFRE SANTÉ - RÉCAPITULATIF", title_style)
     elements.append(title)
@@ -578,11 +862,8 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
             col_name = f'OPTION {i+1}'
             if col_name in row:
                 cell_value = str(row[col_name])
-                # Convertir les retours à la ligne en HTML pour Paragraph
                 if '\n' in cell_value:
-                    # Remplacer \n par <br/> pour HTML
                     cell_value_html = cell_value.replace('\n', '<br/>')
-                    # Utiliser Paragraph pour supporter les br
                     row_data.append(Paragraph(cell_value_html, cell_style))
                 else:
                     row_data.append(cell_value)
@@ -595,16 +876,16 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),  # Réduit de 11 à 10
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('BACKGROUND', (0, 1), (0, -1), colors.HexColor('#f8f9fa')),
         ('TEXTCOLOR', (0, 1), (0, -1), colors.HexColor('#495057')),
         ('ALIGN', (0, 1), (0, -1), 'LEFT'),
         ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 1), (0, -1), 8),  # Réduit de défaut à 8
+        ('FONTSIZE', (0, 1), (0, -1), 8),
         ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
         ('FONTNAME', (1, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (1, 1), (-1, -1), 8),  # Réduit de 10 à 8
+        ('FONTSIZE', (1, 1), (-1, -1), 8),
         ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#1a1a1a')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, colors.HexColor('#f8f8f8')]),
@@ -626,31 +907,64 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
             table_style.add('BACKGROUND', (0, row_idx), (-1, row_idx), colors.HexColor('#145d33'))
             table_style.add('TEXTCOLOR', (0, row_idx), (-1, row_idx), colors.whitesmoke)
             table_style.add('FONTNAME', (0, row_idx), (-1, row_idx), 'Helvetica-Bold')
-            table_style.add('FONTSIZE', (0, row_idx), (-1, row_idx), 10)  # Réduit de 12 à 10
+            table_style.add('FONTSIZE', (0, row_idx), (-1, row_idx), 10)
     
     table.setStyle(table_style)
     elements.append(table)
-    elements.append(Spacer(1, 1*cm))
-    
-    date_text = f"Date de la proposition : {datetime.now().strftime('%d/%m/%Y')}"
-    elements.append(Paragraph(date_text, normal_style))
-    elements.append(Spacer(1, 0.3*cm))
-    
-    contact_text = "Contact commercial : [À RENSEIGNER]"
-    elements.append(Paragraph(contact_text, normal_style))
     elements.append(Spacer(1, 0.5*cm))
     
-    disclaimer_style = ParagraphStyle(
-        'Disclaimer',
-        parent=normal_style,
-        fontSize=9,
-        textColor=colors.HexColor('#dc3545'),
-        fontName='Helvetica-Oblique'
+    # Note en bas de page 3
+    note_text = Paragraph(
+        "<i>Note : Les montants sont exprimés en FCFA. Proposition valable 3 mois.</i>",
+        ParagraphStyle('NoteStyle', parent=normal_style, fontSize=8, textColor=colors.HexColor('#666666'), alignment=TA_CENTER)
     )
-    disclaimer_text = "Ce document est une proposition commerciale et n'a pas valeur de contrat tant qu'il n'est pas signé par les deux parties."
-    elements.append(Paragraph(disclaimer_text, disclaimer_style))
+    elements.append(note_text)
     
-    doc.build(elements)
+    # Saut de page pour le barème
+    elements.append(PageBreak())
+    
+    # ==================== PAGE 4 - IMAGE DU BAREME ====================
+    
+    elements.append(Paragraph("BARÈME DE REMBOURSEMENT", title_style))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Récupérer l'image du barème depuis session_state
+    bareme_image_bytes = st.session_state.get('bareme_image_bytes', None)
+    
+    if bareme_image_bytes:
+        # Créer un buffer temporaire pour l'image
+        import io as io_lib
+        img_buffer = io_lib.BytesIO(bareme_image_bytes)
+        try:
+            bareme_img = Image(img_buffer, width=16*cm, height=22*cm)
+            elements.append(bareme_img)
+        except:
+            # Si erreur, afficher le placeholder
+            placeholder_text = Paragraph(
+                "<i>[Erreur de chargement de l'image du barème]</i>",
+                ParagraphStyle('PlaceholderStyle', parent=normal_style, fontSize=10, textColor=colors.HexColor('#cc0000'), alignment=TA_CENTER)
+            )
+            elements.append(Spacer(1, 3*cm))
+            elements.append(placeholder_text)
+            elements.append(Spacer(1, 3*cm))
+    else:
+        # Pas d'image uploadée
+        placeholder_text = Paragraph(
+            "<i>[Image du barème de remboursement à insérer via l'interface]</i>",
+            ParagraphStyle('PlaceholderStyle', parent=normal_style, fontSize=10, textColor=colors.HexColor('#999999'), alignment=TA_CENTER)
+        )
+        elements.append(Spacer(1, 3*cm))
+        elements.append(placeholder_text)
+        elements.append(Spacer(1, 3*cm))
+        
+        instruction_text = Paragraph(
+            "Pour ajouter l'image du barème, veuillez la télécharger dans la section '📸 Image du Barème' avant de générer le PDF.",
+            ParagraphStyle('InstructionStyle', parent=normal_style, fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, fontName='Helvetica-Oblique')
+        )
+        elements.append(instruction_text)
+    
+    # Construire le PDF avec le bas de page sur chaque page
+    doc.build(elements, onFirstPage=ajouter_bas_de_page, onLaterPages=ajouter_bas_de_page)
     
     pdf_bytes = buffer.getvalue()
     buffer.close()
@@ -1327,6 +1641,43 @@ with tab_cotation:
 
     # --- PARCOURS PARTICULIER ---
     with tab_particulier:
+        st.markdown("---")
+        
+        # Champs de référence pour le PDF
+        st.markdown("<h3 style='color: #6A0DAD;'>📋 Informations de Référence</h3>", unsafe_allow_html=True)
+        with st.container(border=True):
+            col_ref1, col_ref2 = st.columns(2)
+            
+            with col_ref1:
+                reference = st.text_input(
+                    "Référence",
+                    value=st.session_state.get('reference_cotation', 'LWA-00082-10-0735'),
+                    key="reference_cotation",
+                    help="Numéro de référence de la cotation"
+                )
+                prospect = st.text_input(
+                    "Prospect / Société",
+                    value=st.session_state.get('prospect_cotation', 'SOCIETE AKORA'),
+                    key="prospect_cotation",
+                    help="Nom du prospect ou de la société"
+                )
+            
+            with col_ref2:
+                apporteur = st.text_input(
+                    "Apporteur",
+                    value=st.session_state.get('apporteur_cotation', 'ZOH BI'),
+                    key="apporteur_cotation",
+                    help="Nom de l'apporteur d'affaires"
+                )
+            
+            # Stocker dans session_state
+            if 'principal_data' not in st.session_state:
+                st.session_state.principal_data = {}
+            
+            st.session_state.principal_data['reference'] = reference
+            st.session_state.principal_data['prospect'] = prospect
+            st.session_state.principal_data['apporteur'] = apporteur
+        
         st.markdown("---")
         
         st.markdown("<h3 style='color: #6A0DAD;'>1. Profil & Données de Couverture</h3>", unsafe_allow_html=True)
@@ -2883,6 +3234,23 @@ with tab_cotation:
                         
                         if trop_percu > 0:
                             col_tp2.metric("Trop perçu", f"{format_currency(trop_percu)}", delta="Non taxé")
+                        
+                        st.markdown("---")
+                        
+                        # Upload image du barème
+                        st.markdown("### 📸 Image du Barème (Page 4)")
+                        bareme_image = st.file_uploader(
+                            "Joindre l'image du barème de remboursement",
+                            type=['png', 'jpg', 'jpeg'],
+                            key="bareme_image_upload",
+                            help="Cette image apparaîtra en page 4 du PDF"
+                        )
+                        
+                        if bareme_image:
+                            st.success(f"✅ Image chargée : {bareme_image.name}")
+                            # Stocker dans session_state
+                            st.session_state['bareme_image_bytes'] = bareme_image.read()
+                            bareme_image.seek(0)  # Reset pour réutilisation
                         
                         st.markdown("---")
                         if st.button("📝 GÉNÉRER LA PROPOSITION COMMERCIALE", key="btn_generer_prop", type="secondary", use_container_width=True):
