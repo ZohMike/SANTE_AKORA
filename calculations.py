@@ -268,8 +268,8 @@ def calculer_prime_particuliers(
             taux_cumulatif = sum(TAUX_MAJORATION_MEDICALE[aff] for aff in affections_declarees)
             surprime_risques = taux_cumulatif
         
-        # Surprime totale (pour personne seule seulement)
-        surprime_totale = surprime_risques + (surprime_age_taux if type_couverture != 'Famille' else 0)
+        # Surprime totale (pour personne seule seulement) + surprime manuelle
+        surprime_totale = surprime_risques + (surprime_age_taux if type_couverture != 'Famille' else 0) + surprime_manuelle_pourcent
         
         # Ajout de la surprime grossesse forfaitaire
         surprime_forfaitaire_nette = 0
@@ -301,6 +301,7 @@ def calculer_prime_particuliers(
         # Ajout des informations spécifiques
         resultat['surprime_grossesse'] = surprime_forfaitaire_nette
         resultat['surprime_risques_taux'] = surprime_risques
+        resultat['surprime_manuelle_taux'] = surprime_manuelle_pourcent
         resultat['surprime_age_taux'] = surprime_age_taux
         resultat['surprime_totale_taux'] = surprime_totale if type_couverture != 'Famille' else surprime_risques
         resultat['nombre_enfants_supp'] = enfants_supplementaires
