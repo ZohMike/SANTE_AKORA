@@ -133,7 +133,9 @@ def calculer_prime_corporate_rapide(
     duree_contrat: int = 12,
     prime_nette_manuelle: Optional[float] = None,
     accessoires_manuels: Optional[float] = None,
-    accessoire_plus: float = 0
+    accessoire_plus: float = 0,
+    prime_lsp_manuelle: Optional[float] = None,
+    prime_assist_psy_manuelle: Optional[float] = None
 ) -> Dict[str, Any]:
     """Wrapper vers calculations.calculer_prime_corporate_rapide."""
     return calc_calculer_prime_corporate_rapide(
@@ -147,6 +149,8 @@ def calculer_prime_corporate_rapide(
         prime_nette_manuelle=prime_nette_manuelle,
         accessoires_manuels=accessoires_manuels,
         accessoire_plus=accessoire_plus,
+        prime_lsp_manuelle=prime_lsp_manuelle,
+        prime_assist_psy_manuelle=prime_assist_psy_manuelle,
     )
 
 
@@ -2669,7 +2673,7 @@ with tab_cotation:
                                     
                                     st.markdown(f"**{PRODUITS_PARTICULIERS_UI[bareme_key]}**")
                                     
-                                    col_force1, col_force2, col_force3 = st.columns([1, 1, 1])
+                                    col_force1, col_force2 = st.columns(2)
                                     
                                     with col_force1:
                                         prime_nette_forcee = st.number_input(
@@ -2691,14 +2695,48 @@ with tab_cotation:
                                             help="Saisissez les accessoires que vous souhaitez appliquer"
                                         )
                                     
+                                    col_force3, col_force4 = st.columns(2)
+                                    
+                                    prime_lsp_originale = resultat_original.get('prime_lsp', 20000)
+                                    prime_assist_psy_originale = resultat_original.get('prime_assist_psy', 35000)
+                                    
                                     with col_force3:
-                                        st.metric("Prime Nette Originale", format_currency(prime_nette_originale))
-                                        st.metric("Accessoires Originaux", format_currency(accessoires_originaux))
-                                        st.metric("Prime TTC Originale", format_currency(prime_ttc_originale))
+                                        prime_lsp_forcee = st.number_input(
+                                            "Prime LSP Forcée (FCFA)",
+                                            min_value=0.0,
+                                            value=float(prime_lsp_originale),
+                                            step=1000.0,
+                                            key=f"prime_lsp_forcee_part_{idx}",
+                                            help="Prime Lettre de Sortie Provisoire"
+                                        )
+                                    
+                                    with col_force4:
+                                        prime_assist_psy_forcee = st.number_input(
+                                            "Prime Assistance Psy Forcée (FCFA)",
+                                            min_value=0.0,
+                                            value=float(prime_assist_psy_originale),
+                                            step=1000.0,
+                                            key=f"prime_assist_psy_forcee_part_{idx}",
+                                            help="Prime d'assistance psychologique"
+                                        )
+                                    
+                                    # Afficher les valeurs originales
+                                    st.markdown("**Valeurs Originales**")
+                                    col_orig1, col_orig2, col_orig3, col_orig4 = st.columns(4)
+                                    with col_orig1:
+                                        st.metric("Prime Nette", format_currency(prime_nette_originale))
+                                    with col_orig2:
+                                        st.metric("Accessoires", format_currency(accessoires_originaux))
+                                    with col_orig3:
+                                        st.metric("LSP", format_currency(prime_lsp_originale))
+                                    with col_orig4:
+                                        st.metric("Assist Psy", format_currency(prime_assist_psy_originale))
                                     
                                     primes_forcees[idx] = {
                                         'prime_nette': prime_nette_forcee,
-                                        'accessoires': accessoires_forces
+                                        'accessoires': accessoires_forces,
+                                        'prime_lsp': prime_lsp_forcee,
+                                        'prime_assist_psy': prime_assist_psy_forcee
                                     }
                                     
                                     st.markdown("---")
@@ -2707,21 +2745,22 @@ with tab_cotation:
                                     for idx in primes_forcees:
                                         prime_nette_f = primes_forcees[idx]['prime_nette']
                                         accessoires_f = primes_forcees[idx]['accessoires']
+                                        prime_lsp_f = primes_forcees[idx]['prime_lsp']
+                                        prime_assist_psy_f = primes_forcees[idx]['prime_assist_psy']
                                         
                                         resultat = resultats_multi[idx]['resultat']
                                         
                                         resultat['prime_nette_finale'] = prime_nette_f
                                         resultat['accessoires'] = accessoires_f
+                                        resultat['prime_lsp'] = prime_lsp_f
+                                        resultat['prime_assist_psy'] = prime_assist_psy_f
                                         
                                         prime_ttc_taxable = prime_nette_f + accessoires_f
                                         taxe = prime_ttc_taxable * TAUX_TAXE_PARTICULIER
                                         resultat['taxe'] = taxe
                                         resultat['prime_ttc_taxable'] = prime_ttc_taxable + taxe
                                         
-                                        prime_lsp = resultat.get('prime_lsp', 0)
-                                        prime_assist_psy = resultat.get('prime_assist_psy', 0)
-                                        
-                                        resultat['prime_ttc_totale'] = resultat['prime_ttc_taxable'] + prime_lsp + prime_assist_psy
+                                        resultat['prime_ttc_totale'] = resultat['prime_ttc_taxable'] + prime_lsp_f + prime_assist_psy_f
                                         resultat['prime_forcee'] = True
                                     
                                     st.session_state['resultats_part_multi'] = resultats_multi
@@ -2863,6 +2902,26 @@ with tab_cotation:
                                 help="Frais accessoires totaux"
                             )
                             
+                            col_man3, col_man4 = st.columns(2)
+                            
+                            prime_lsp_formule = col_man3.number_input(
+                                "Prime LSP Totale (FCFA)",
+                                min_value=0.0,
+                                value=20000.0,
+                                step=1000.0,
+                                key=f"prime_lsp_manuel_formule_{i}",
+                                help="Prime Lettre de Sortie Provisoire totale"
+                            )
+                            
+                            prime_assist_psy_formule = col_man4.number_input(
+                                "Prime Assistance Psy Totale (FCFA)",
+                                min_value=0.0,
+                                value=35000.0,
+                                step=1000.0,
+                                key=f"prime_assist_psy_manuel_formule_{i}",
+                                help="Prime d'assistance psychologique totale"
+                            )
+                            
                             if prime_formule == 0:
                                 st.warning("⚠️ Veuillez saisir une prime nette pour continuer")
                             else:
@@ -2883,7 +2942,9 @@ with tab_cotation:
                                     'nb_enfants_supp': nb_enfants_supp,
                                     'prime_nette': prime_formule,
                                     'prime_nette_manuelle': prime_formule,
-                                    'accessoires_manuels': accessoires_formule
+                                    'accessoires_manuels': accessoires_formule,
+                                    'prime_lsp_manuelle': prime_lsp_formule,
+                                    'prime_assist_psy_manuelle': prime_assist_psy_formule
                                 })
                         else:
                             # Calcul normal avec barème prédéfini
@@ -2979,7 +3040,9 @@ with tab_cotation:
                                     duree_contrat=duree_contrat_rapide,
                                     prime_nette_manuelle=formule.get('prime_nette_manuelle'),
                                     accessoires_manuels=formule.get('accessoires_manuels'),
-                                    accessoire_plus=accessoire_plus_corp
+                                    accessoire_plus=accessoire_plus_corp,
+                                    prime_lsp_manuelle=formule.get('prime_lsp_manuelle'),
+                                    prime_assist_psy_manuelle=formule.get('prime_assist_psy_manuelle')
                                 )
                                 
                                 resultat['nom_formule'] = formule['nom']
@@ -3060,11 +3123,15 @@ with tab_cotation:
                             accessoires_originaux = sum(
                                 f.get('accessoires', 0) for f in resultats['formules']
                             )
+                            services_originaux = sum(
+                                f.get('prime_lsp', 0) + f.get('prime_assist_psy', 0) 
+                                for f in resultats['formules']
+                            )
                             prime_ttc_originale = resultats['prime_ttc_finale']
                             
-                            st.markdown("**Saisissez la Prime Nette et les Accessoires :**")
+                            st.markdown("**Saisissez la Prime Nette, les Accessoires et les Services :**")
                             
-                            col_force1, col_force2, col_force3 = st.columns([1, 1, 1])
+                            col_force1, col_force2 = st.columns(2)
                             
                             with col_force1:
                                 prime_nette_forcee_rapide = st.number_input(
@@ -3086,20 +3153,44 @@ with tab_cotation:
                                     help="Saisissez les accessoires totaux que vous souhaitez appliquer"
                                 )
                             
+                            col_force3, col_force4 = st.columns(2)
+                            
                             with col_force3:
-                                st.metric("Prime Nette Originale", format_currency(prime_nette_originale))
-                                st.metric("Accessoires Originaux", format_currency(accessoires_originaux))
-                                st.metric("Prime TTC Originale", format_currency(prime_ttc_originale))
+                                prime_lsp_forcee_rapide = st.number_input(
+                                    "Prime LSP Totale Forcée (FCFA)",
+                                    min_value=0.0,
+                                    value=float(services_originaux / 2),
+                                    step=1000.0,
+                                    key="prime_lsp_forcee_corp_rapide",
+                                    help="Prime LSP totale pour tous les assurés"
+                                )
+                            
+                            with col_force4:
+                                prime_assist_psy_forcee_rapide = st.number_input(
+                                    "Prime Assistance Psy Totale Forcée (FCFA)",
+                                    min_value=0.0,
+                                    value=float(services_originaux / 2),
+                                    step=1000.0,
+                                    key="prime_assist_psy_forcee_corp_rapide",
+                                    help="Prime d'assistance psychologique totale"
+                                )
+                            
+                            # Afficher les valeurs originales
+                            st.markdown("**Valeurs Originales**")
+                            col_orig1, col_orig2, col_orig3 = st.columns(3)
+                            with col_orig1:
+                                st.metric("Prime Nette", format_currency(prime_nette_originale))
+                            with col_orig2:
+                                st.metric("Accessoires", format_currency(accessoires_originaux))
+                            with col_orig3:
+                                st.metric("Services", format_currency(services_originaux))
                             
                             prime_ttc_taxable_forcee = prime_nette_forcee_rapide + accessoires_forces_rapide
                             taxe_forcee = prime_ttc_taxable_forcee * TAUX_TAXE_CORPORATE
                             prime_ttc_taxable_avec_taxe = prime_ttc_taxable_forcee + taxe_forcee
                             
-                            services_totaux = sum(
-                                f.get('prime_lsp', 0) + f.get('prime_assist_psy', 0) 
-                                for f in resultats['formules']
-                            )
-                            prime_ttc_totale_forcee = prime_ttc_taxable_avec_taxe + services_totaux
+                            services_totaux_forces = prime_lsp_forcee_rapide + prime_assist_psy_forcee_rapide
+                            prime_ttc_totale_forcee = prime_ttc_taxable_avec_taxe + services_totaux_forces
                             
                             reduction_commerciale = resultats.get('reduction_commerciale', 0)
                             prime_finale_forcee = prime_ttc_totale_forcee * (100 - reduction_commerciale) / 100
