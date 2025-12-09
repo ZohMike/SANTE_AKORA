@@ -41,6 +41,19 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# --- INITIALISATION DES VARIABLES SESSION_STATE ---
+# Initialiser toutes les variables nécessaires dès le début
+if 'baremes_selectionnes_list' not in st.session_state:
+    st.session_state.baremes_selectionnes_list = []
+if 'resultats_part_multi' not in st.session_state:
+    st.session_state.resultats_part_multi = {}
+if 'configurations_baremes' not in st.session_state:
+    st.session_state.configurations_baremes = {}
+if 'principal_data' not in st.session_state:
+    st.session_state.principal_data = {}
+if 'trop_percu_part_multi' not in st.session_state:
+    st.session_state.trop_percu_part_multi = 0.0
+
 def load_css(file_name):
     """Charge un fichier CSS et l'injecte dans l'application Streamlit."""
     try:
@@ -59,6 +72,7 @@ st.markdown("""
         <div class="header-logo">
             <i class="fas fa-shield-alt" style="color: #1a1d29;"></i>
             <span>Assur Defender</span>
+            <span style="font-size: 12px; color: #28a745; margin-left: 10px;">v2.3-REGROUPEMENT</span>
         </div>
         <div class="user-info">
             <i class="fas fa-user" style="color: #495057;"></i> Utilisateur connecté
@@ -529,6 +543,16 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
         fontName='Helvetica-Bold'
     )
     
+    # Style pour les cellules avec retours à la ligne
+    cell_style = ParagraphStyle(
+        'CellStyle',
+        parent=styles['Normal'],
+        fontSize=8,  # Réduit de 10 à 8
+        alignment=TA_CENTER,
+        fontName='Helvetica',
+        leading=10  # Réduit de 12 à 10
+    )
+    
     normal_style = styles['Normal']
     elements = []
     
@@ -553,7 +577,15 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
         for i in range(nb_options):
             col_name = f'OPTION {i+1}'
             if col_name in row:
-                row_data.append(str(row[col_name]))
+                cell_value = str(row[col_name])
+                # Convertir les retours à la ligne en HTML pour Paragraph
+                if '\n' in cell_value:
+                    # Remplacer \n par <br/> pour HTML
+                    cell_value_html = cell_value.replace('\n', '<br/>')
+                    # Utiliser Paragraph pour supporter les br
+                    row_data.append(Paragraph(cell_value_html, cell_style))
+                else:
+                    row_data.append(cell_value)
         table_data.append(row_data)
     
     table = Table(table_data, colWidths=col_widths)
@@ -563,15 +595,16 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),  # Réduit de 11 à 10
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('BACKGROUND', (0, 1), (0, -1), colors.HexColor('#f8f9fa')),
         ('TEXTCOLOR', (0, 1), (0, -1), colors.HexColor('#495057')),
         ('ALIGN', (0, 1), (0, -1), 'LEFT'),
         ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (0, -1), 8),  # Réduit de défaut à 8
         ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
         ('FONTNAME', (1, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (1, 1), (-1, -1), 10),
+        ('FONTSIZE', (1, 1), (-1, -1), 8),  # Réduit de 10 à 8
         ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#1a1a1a')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ROWBACKGROUNDS', (1, 1), (-1, -1), [colors.white, colors.HexColor('#f8f8f8')]),
@@ -580,7 +613,7 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
     for idx, row in data_frame.iterrows():
         row_idx = idx + 1
         
-        if row['Désignation'] in ['PRIME NETTE / PERSONNE', 'PRIME NETTE ANNUELLE TOTALE']:
+        if row['Désignation'] in ['PRIME NETTE / PERSONNE', 'PRIME NETTE TOTALE']:
             table_style.add('BACKGROUND', (0, row_idx), (-1, row_idx), colors.HexColor('#f2e8d9'))
             table_style.add('FONTNAME', (0, row_idx), (-1, row_idx), 'Helvetica-Bold')
         
@@ -588,6 +621,12 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
             table_style.add('BACKGROUND', (0, row_idx), (-1, row_idx), colors.HexColor('#754015'))
             table_style.add('TEXTCOLOR', (0, row_idx), (-1, row_idx), colors.whitesmoke)
             table_style.add('FONTNAME', (0, row_idx), (-1, row_idx), 'Helvetica-Bold')
+        
+        if row['Désignation'] == 'MONTANT TOTAL À PAYER':
+            table_style.add('BACKGROUND', (0, row_idx), (-1, row_idx), colors.HexColor('#145d33'))
+            table_style.add('TEXTCOLOR', (0, row_idx), (-1, row_idx), colors.whitesmoke)
+            table_style.add('FONTNAME', (0, row_idx), (-1, row_idx), 'Helvetica-Bold')
+            table_style.add('FONTSIZE', (0, row_idx), (-1, row_idx), 10)  # Réduit de 12 à 10
     
     table.setStyle(table_style)
     elements.append(table)
@@ -624,28 +663,49 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
 # ==============================================================================
 
 def generer_recapitulatif_particulier(resultats_multi: Dict[int, Dict], baremes_affiches: List[str]):
-    """Génère un récapitulatif comparatif des 3 premières options sous forme de PDF."""
+    """Génère un récapitulatif comparatif intelligent avec regroupement automatique."""
+    from collections import defaultdict
+    import uuid
+    from datetime import datetime
     
+    # Récupérer les configurations et infos principales
     configurations_baremes = st.session_state.get('configurations_baremes', {})
-    options_data = []
+    principal_data = st.session_state.get('principal_data', {})
+    trop_percu = st.session_state.get('trop_percu_part_multi', 0.0)
     
-    nb_options = len(baremes_affiches)
-    options_data = []
+    # === REGROUPEMENT INTELLIGENT ===
+    # Grouper par (produit_name, type_couverture)
+    groupes = defaultdict(list)
     
-    for idx in range(nb_options):
+    for idx in range(len(baremes_affiches)):
         bareme_key = baremes_affiches[idx]
         resultat_data = resultats_multi[idx]
         resultat = resultat_data['resultat']
         config = configurations_baremes.get(idx, {})
-
+        
         type_couv = config.get('type_couverture', 'Personne seule')
-        nb_enfants_supp = config.get('enfants_supp', 0)
+        produit_name = PRODUITS_PARTICULIERS_UI.get(bareme_key, bareme_key)
         
-        type_proposition_label = "Individuel" if type_couv == 'Personne seule' else "Famille"
-        population_value = '1'
-        enfants_supp_value = str(nb_enfants_supp) if type_couv == 'Famille' else 'N/A' 
+        # Clé de regroupement
+        key = (produit_name, type_couv)
         
-        produit_ui_name = PRODUITS_PARTICULIERS_UI.get(bareme_key, bareme_key)
+        groupes[key].append({
+            'idx': idx,
+            'bareme_key': bareme_key,
+            'resultat': resultat,
+            'config': config,
+            'type_couverture': type_couv
+        })
+    
+    # === CONSTRUCTION DES DONNÉES POUR LE PDF ===
+    options_data = []
+    groupes_tries = sorted(groupes.items(), key=lambda x: (x[0][0], x[0][1]))
+    
+    for (produit_name, type_couv), items in groupes_tries:
+        # Déterminer les plafonds et garanties
+        premier_item = items[0]
+        bareme_key = premier_item['bareme_key']
+        
         garantie = 'N/A'
         plafond_pers = 'N/A'
         plafond_famille = 'N/A'
@@ -664,46 +724,82 @@ def generer_recapitulatif_particulier(resultats_multi: Dict[int, Dict], baremes_
                 plafond_famille = format_currency(plafond_famille_val)
             if taux_couv_val > 0:
                 garantie = f"{taux_couv_val:.0f}%"
-        elif '70%' in produit_ui_name or 'P70' in bareme_key or '70' in bareme_key:
+        elif '70%' in produit_name or 'P70' in bareme_key or '70' in bareme_key or 'SAPHIR' in produit_name.upper():
             garantie = '70%'
             plafond_pers = format_currency(1_000_000)
             plafond_famille = format_currency(3_000_000)
-        elif '80%' in produit_ui_name or 'P80' in bareme_key or '80' in bareme_key:
+        elif '80%' in produit_name or 'P80' in bareme_key or '80' in bareme_key or 'RUBIS' in produit_name.upper():
             garantie = '80%'
             plafond_pers = format_currency(2_500_000)
             plafond_famille = format_currency(7_500_000)
-        elif '90%' in produit_ui_name or 'P90' in bareme_key or '90' in bareme_key:
+        elif '90%' in produit_name or 'P90' in bareme_key or '90' in bareme_key or 'ÉMERAUDE' in produit_name.upper():
             garantie = '90%'
             plafond_pers = format_currency(3_500_000)
             plafond_famille = format_currency(10_500_000)
+        elif '100%' in produit_name or 'DIAMANT' in produit_name.upper():
+            garantie = '100%'
+            plafond_pers = format_currency(5_000_000)
+            plafond_famille = format_currency(15_000_000)
         
-        prime_nette_finale = resultat['prime_nette_finale']
-        surprime_affection = resultat.get('surprime_risques_montant', 0)
-        surprime_grossesse = resultat.get('surprime_grossesse', 0)
-        prime_nette_annuelle_totale = prime_nette_finale + surprime_affection + surprime_grossesse
-
+        # Calculer les totaux et détails pour ce groupe
+        population = len(items)
+        type_proposition_label = "Individuel" if type_couv == 'Personne seule' else "Famille"
+        
+        # Fonction pour formater avec détail
+        def format_avec_detail(values):
+            # TOUJOURS afficher uniquement le total
+            return format_currency(sum(values))
+        
+        # Collecter les valeurs
+        primes_nettes = [item['resultat']['prime_nette_finale'] for item in items]
+        surprimes_affection = []
+        for item in items:
+            res = item['resultat']
+            prime_base = res.get('prime_nette_finale', 0)
+            surprime_taux = res.get('surprime_risques_taux', 0)
+            if surprime_taux > 0:
+                surprime = prime_base * (surprime_taux / (100 + surprime_taux))
+            else:
+                surprime = 0
+            surprimes_affection.append(surprime)
+        
+        surprimes_grossesse = [item['resultat'].get('surprime_grossesse', 0) for item in items]
+        primes_lsp = [item['resultat'].get('prime_lsp', 0) for item in items]
+        primes_assist_psy = [item['resultat'].get('prime_assist_psy', 0) for item in items]
+        accessoires = [item['resultat']['accessoires'] for item in items]
+        taxes = [item['resultat']['taxe'] for item in items]
+        primes_ttc = [item['resultat']['prime_ttc_totale'] for item in items]
+        
+        # Prime nette annuelle totale
+        prime_nette_annuelle_totale = sum(primes_nettes) + sum(surprimes_affection) + sum(surprimes_grossesse)
+        
+        # Montant total = Prime TTC + Trop perçu
+        montant_total = sum(primes_ttc) + trop_percu
+        
         options_data.append({
             'plafond_annuel_pers': plafond_pers,
             'plafond_annuel_famille': plafond_famille,
             'garanties': garantie,
             'type_proposition': type_proposition_label,
-            'population': population_value,
-            'enfants_supp': enfants_supp_value,
-            'prime_nette_personne': format_currency(prime_nette_finale),
-            'surprime_affection': format_currency(surprime_affection),
-            'surprime_grossesse': format_currency(surprime_grossesse),
-            'prime_totale_couverture_deces': format_currency(resultat.get('prime_lsp', 0)),
-            'assistance_psychologique': format_currency(resultat.get('prime_assist_psy', 0)),
+            'population': str(population),
+            'enfants_supp': 'N/A',
+            'prime_nette_personne': format_avec_detail(primes_nettes),
+            'surprime_affection': format_avec_detail(surprimes_affection),
+            'surprime_grossesse': format_avec_detail(surprimes_grossesse),
+            'prime_totale_couverture_deces': format_avec_detail(primes_lsp),
+            'assistance_psychologique': format_avec_detail(primes_assist_psy),
             'prime_nette_annuelle_totale': format_currency(prime_nette_annuelle_totale),
-            'accessoires': format_currency(resultat['accessoires']),
-            'taxes': format_currency(resultat['taxe']),
-            'prime_ttc_annuelle': format_currency(resultat['prime_ttc_totale'])
+            'accessoires': format_avec_detail(accessoires),
+            'taxes': format_currency(sum(taxes)),
+            'prime_ttc_annuelle': format_currency(sum(primes_ttc)),
+            'trop_percu': format_currency(trop_percu) if trop_percu > 0 else "0 FCFA",
+            'montant_total': format_currency(montant_total)
         })
-
-
+    
+    # === CONSTRUCTION DU DATAFRAME ===
     designations = [
         'PLAFOND ANNUEL / PERS',
-        'PLAFOND ANNUEL / FAMILLE',
+        'PLAFOND ANNUEL / FAM',
         'GESTIONNAIRE', 
         'TERRITORIALITÉ', 
         'GARANTIES', 
@@ -712,39 +808,42 @@ def generer_recapitulatif_particulier(resultats_multi: Dict[int, Dict], baremes_
         'PRIME NETTE / PERSONNE',
         'SURPRIME AFFECTION',
         'SURPRIME GROSSESSE',
-        'PRIME TOTALE COUVERTURE DECES',
-        'ASSISTANCE PSYCHOLOGIQUE',
-        'PRIME NETTE ANNUELLE TOTALE',
+        'PRIME TOTALE LSP',
+        'PRIME ASSISTANCE PSY',
+        'PRIME NETTE TOTALE',
         'ACCESSOIRES',
         'TAXES',
-        'PRIME TTC ANNUELLE'
+        'PRIME TTC ANNUELLE',
+        'TROP PERÇU',
+        'MONTANT TOTAL À PAYER'
     ]
     
+    nb_options = len(options_data)
     df_dict = {'Désignation': designations}
     
     for i in range(nb_options):
         option_values = [
             options_data[i]['plafond_annuel_pers'],
             options_data[i]['plafond_annuel_famille'],
-            'ANKARA SERVICE', 'COTE D\'IVOIRE', options_data[i]['garanties'], 
-            options_data[i]['type_proposition'], options_data[i]['population'], 
-            options_data[i]['prime_nette_personne'], options_data[i]['surprime_affection'], 
-            options_data[i]['surprime_grossesse'], options_data[i]['prime_totale_couverture_deces'], 
-            options_data[i]['assistance_psychologique'], options_data[i]['prime_nette_annuelle_totale'], 
-            options_data[i]['accessoires'], options_data[i]['taxes'], options_data[i]['prime_ttc_annuelle']
+            'ANKARA SERVICE', 
+            'COTE D\'IVOIRE', 
+            options_data[i]['garanties'], 
+            options_data[i]['type_proposition'], 
+            options_data[i]['population'], 
+            options_data[i]['prime_nette_personne'], 
+            options_data[i]['surprime_affection'], 
+            options_data[i]['surprime_grossesse'], 
+            options_data[i]['prime_totale_couverture_deces'], 
+            options_data[i]['assistance_psychologique'], 
+            options_data[i]['prime_nette_annuelle_totale'], 
+            options_data[i]['accessoires'], 
+            options_data[i]['taxes'], 
+            options_data[i]['prime_ttc_annuelle'],
+            options_data[i]['trop_percu'],
+            options_data[i]['montant_total']
         ]
         df_dict[f'OPTION {i+1}'] = option_values
     
-    has_famille_option = any(d['type_proposition'] == 'Famille' for d in options_data)
-    if has_famille_option:
-        try:
-            insert_index = designations.index('POPULATION') + 1
-            designations.insert(insert_index, 'ENFANTS SUPPLEMENTAIRES')
-            for i in range(nb_options):
-                df_dict[f'OPTION {i+1}'].insert(insert_index, options_data[i]['enfants_supp'])
-        except ValueError:
-            pass
-
     data_frame = pd.DataFrame(df_dict)
     
     pdf_bytes = generer_pdf_proposition(data_frame, options_data, nb_options)
@@ -2767,6 +2866,24 @@ with tab_cotation:
                                     st.success("✅ Primes forcées appliquées avec succès !")
                                     st.rerun()
 
+                        st.markdown("---")
+                        
+                        # Champ Trop perçu
+                        st.markdown("### 💰 Trop Perçu (Optionnel)")
+                        col_tp1, col_tp2 = st.columns([3, 1])
+                        
+                        trop_percu = col_tp1.number_input(
+                            "Montant du trop perçu (FCFA)",
+                            min_value=0.0,
+                            value=0.0,
+                            step=1000.0,
+                            key="trop_percu_part_multi",
+                            help="Montant à ajouter à la prime TTC (non taxé)"
+                        )
+                        
+                        if trop_percu > 0:
+                            col_tp2.metric("Trop perçu", f"{format_currency(trop_percu)}", delta="Non taxé")
+                        
                         st.markdown("---")
                         if st.button("📝 GÉNÉRER LA PROPOSITION COMMERCIALE", key="btn_generer_prop", type="secondary", use_container_width=True):
                             generer_recapitulatif_particulier(resultats_multi, baremes_affiches)
