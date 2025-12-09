@@ -421,7 +421,9 @@ def calculer_prime_corporate_rapide(
     duree_contrat: int = 12,
     prime_nette_manuelle: Optional[float] = None,
     accessoires_manuels: Optional[float] = None,
-    accessoire_plus: float = 0
+    accessoire_plus: float = 0,
+    prime_lsp_manuelle: Optional[float] = None,
+    prime_assist_psy_manuelle: Optional[float] = None
 ) -> Dict[str, Any]:
     """Calcule une ESTIMATION RAPIDE pour un contrat corporate (aide à la vente uniquement)."""
     
@@ -435,12 +437,16 @@ def calculer_prime_corporate_rapide(
         # Ajouter les accessoires supplémentaires
         accessoires_finaux += accessoire_plus
         
+        # Utiliser les valeurs manuelles pour LSP et Assistance Psy
+        prime_lsp_finale = prime_lsp_manuelle if prime_lsp_manuelle is not None else 20000
+        prime_assist_psy_finale = prime_assist_psy_manuelle if prime_assist_psy_manuelle is not None else 35000
+        
         # Calcul final avec les valeurs manuelles
         resultat = calculer_prime_avec_parametres(
             prime_nette_base=prime_nette_manuelle,
             accessoires=accessoires_finaux,
-            prime_lsp=20000,  # Valeur par défaut pour LSP
-            prime_assist_psy=35000,  # Valeur par défaut pour assistance psy
+            prime_lsp=prime_lsp_finale,
+            prime_assist_psy=prime_assist_psy_finale,
             reduction=reduction_commerciale,
             surprime=surprime_risques,
             duree_contrat=duree_contrat,
