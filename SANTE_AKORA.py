@@ -534,19 +534,19 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
         # Vérifier si l'image du bas de page existe
         if os.path.exists('bas_de_page.png'):
             try:
-                # Positionner l'image en bas de page sur toute la largeur
+                # Positionner l'image en bas de page (centrée)
                 page_width, page_height = A4
-                img_width = page_width  # Toute la largeur de la page
-                img_height = 0.5*cm  # Hauteur de l'image
-                x_position = 0  # Commencer depuis le bord gauche
-                y_position = 0  # Position depuis le bas (bord inférieur)
+                img_width = 18*cm  # Largeur de l'image
+                img_height = 0.8*cm  # Hauteur de l'image
+                x_position = (page_width - img_width) / 2  # Centrer horizontalement
+                y_position = 0.5*cm  # Position depuis le bas
                 
                 canvas_obj.drawImage('bas_de_page.png', 
                                    x_position, 
                                    y_position, 
                                    width=img_width, 
                                    height=img_height,
-                                   preserveAspectRatio=False,  # Étirer pour prendre toute la largeur
+                                   preserveAspectRatio=True,
                                    mask='auto')
             except Exception as e:
                 # En cas d'erreur, ne rien afficher
@@ -559,8 +559,8 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
         pagesize=A4,
         rightMargin=1.5*cm,
         leftMargin=1.5*cm,
-        topMargin=0.4*cm,  # Réduire davantage la marge du haut
-        bottomMargin=2.5*cm  # Marge du bas pour le footer pleine largeur
+        topMargin=2*cm,
+        bottomMargin=3*cm  # Augmenter la marge du bas pour le footer
     )
     
     styles = getSampleStyleSheet()
@@ -619,18 +619,23 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
     
     # ==================== PAGE 1 ====================
     
-    # Logo en haut à droite (première page seulement) - bien dimensionné
+    # Logo en haut à droite (première page seulement)
+    logo_cell = None
     if os.path.exists('leadway logo all formats big-02.png'):
         try:
-            # Créer une table pour positionner le logo à droite
-            logo_img = Image('leadway logo all formats big-02.png', width=3.5*cm, height=3*cm)
-            logo_table = Table([[logo_img]], colWidths=[18*cm])
+            logo_img = Image('leadway logo all formats big-02.png', width=4*cm, height=2.5*cm)
+            logo_table = Table([[logo_img]], colWidths=[4*cm])
             logo_table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (0, 0), 'RIGHT'),
                 ('VALIGN', (0, 0), (0, 0), 'TOP'),
             ]))
-            elements.append(logo_table)
-            elements.append(Spacer(1, 0.2*cm))  # Réduire l'espace
+            # Positionner le logo en haut à droite
+            logo_container = Table([['']], colWidths=[18*cm])
+            logo_container.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'RIGHT'),
+            ]))
+            elements.append(logo_img)
+            elements.append(Spacer(1, 0.3*cm))
         except:
             pass
     
@@ -647,14 +652,14 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#E67E22')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 18),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 18),
+        ('TOPPADDING', (0, 0), (-1, -1), 15),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
         ('LEFTPADDING', (0, 0), (-1, -1), 10),
         ('RIGHTPADDING', (0, 0), (-1, -1), 10),
     ]))
     
     elements.append(header_table)
-    elements.append(Spacer(1, 0.3*cm))  # Réduire l'espace
+    elements.append(Spacer(1, 0.5*cm))
     
     # En-tête avec références
     ref_data = st.session_state.get('principal_data', {})
@@ -820,16 +825,15 @@ def generer_pdf_proposition(data_frame: pd.DataFrame, options_data: List[Dict], 
         ParagraphStyle('SignatureLabel', parent=normal_style, alignment=TA_RIGHT, fontName='Helvetica-Bold', fontSize=10)
     )
     elements.append(signature_paragraph)
-    elements.append(Spacer(1, 0.1*cm))  # Réduire l'espace pour coller la signature
+    elements.append(Spacer(1, 0.2*cm))
     
     # Image de la signature
     if os.path.exists('signature.png'):
         try:
-            signature_img = Image('signature.png', width=4*cm, height=2.5*cm)  # Réduire légèrement la hauteur
-            signature_table = Table([[signature_img]], colWidths=[18*cm])  # Utiliser toute la largeur
+            signature_img = Image('signature.png', width=4*cm, height=3*cm)
+            signature_table = Table([[signature_img]], colWidths=[4*cm])
             signature_table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (0, 0), 'RIGHT'),
-                ('VALIGN', (0, 0), (0, 0), 'TOP'),
             ]))
             elements.append(signature_table)
         except:
