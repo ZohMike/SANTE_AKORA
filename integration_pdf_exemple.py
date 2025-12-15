@@ -1,45 +1,62 @@
 # ==============================================================================
-# INTÉGRATION DU GÉNÉRATEUR PDF DANS SANTECOTATION.PY
+# INTÉGRATION DU PDF COMPARATIF DANS SANTECOTATION.PY
 # ==============================================================================
 
 """
-Ce fichier montre comment intégrer le générateur PDF dans votre fichier principal.
-Copiez ces sections dans santecotation.py aux emplacements appropriés.
+Ce fichier montre comment intégrer le générateur PDF comparatif intelligent
+dans santecotation.py pour les cotations multi-barèmes Particuliers.
 """
 
 # ------------------------------------------------------------------------------
-# 1. IMPORTS À AJOUTER AU DÉBUT DU FICHIER (après les autres imports)
+# 1. IMPORT À AJOUTER (en plus de l'import existant)
 # ------------------------------------------------------------------------------
 
-from pdf_generator import generer_pdf_cotation_particulier
-import uuid
+from pdf_generator import (
+    generer_pdf_cotation_particulier,
+    generer_pdf_comparatif_particulier  # ← NOUVEAU
+)
 
 # ------------------------------------------------------------------------------
-# 2. CODE À AJOUTER APRÈS L'AFFICHAGE DES RÉSULTATS PARTICULIERS
+# 2. INTÉGRATION DANS LA SECTION MULTI-BARÈMES PARTICULIERS
 # ------------------------------------------------------------------------------
 
-# Exemple de placement : après avoir affiché le résultat de calcul
-# Dans la section "Cotation Particuliers", après "afficher_resultat()"
+"""
+Cherchez dans santecotation.py la section où vous affichez les résultats 
+des cotations multi-barèmes (après le calcul de plusieurs barèmes).
+
+Typiquement autour de la ligne 2450-2650 où vous avez :
+    if 'resultats_part_multi' in st.session_state:
+        resultats_multi = st.session_state['resultats_part_multi']
+"""
+
+# CODE À INSÉRER APRÈS L'AFFICHAGE DES RÉSULTATS MULTI-BARÈMES
+
+# === GÉNÉRATION DU PDF COMPARATIF ===
+st.markdown("---")
+st.markdown("### 📄 Document Comparatif PDF")
 
 # Générer un numéro de devis unique
-if 'numero_devis_part' not in st.session_state:
-    st.session_state['numero_devis_part'] = f"PART-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+if 'numero_devis_comparatif' not in st.session_state:
+    st.session_state['numero_devis_comparatif'] = f"COMP-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
-numero_devis = st.session_state['numero_devis_part']
-
-# Section de téléchargement du PDF
-st.markdown("---")
-st.markdown("### 📄 Générer le Document de Cotation")
+numero_devis = st.session_state['numero_devis_comparatif']
 
 with st.container(border=True):
-    st.info("💡 Générez un document PDF professionnel avec tous les détails de la cotation.")
+    st.info("💡 Générez un document PDF comparatif intelligent avec tableau récapitulatif")
     
-    col_pdf1, col_pdf2 = st.columns([2, 1])
+    col_pdf1, col_pdf2 = st.columns([3, 1])
     
     with col_pdf1:
-        st.markdown(f"**Numéro de devis :** `{numero_devis}`")
-        st.markdown(f"**Client :** {principal_data['nom']} {principal_data['prenom']}")
-        st.markdown(f"**Produit :** {PRODUITS_PARTICULIERS_UI[produit_key_part]}")
+        st.markdown(f"**📋 Devis N° :** `{numero_devis}`")
+        st.markdown(f"**👤 Client :** {principal_data['nom']} {principal_data['prenom']}")
+        
+        # Compter les options
+        nb_baremes = len(baremes_affiches)
+        st.markdown(f"**📊 Nombre de cotations :** {nb_baremes}")
+        
+        # Afficher un aperçu des barèmes
+        baremes_uniques = set(baremes_affiches)
+        st.caption(f"Produits : {', '.join([PRODUITS_PARTICULIERS_UI[b] for b in baremes_uniques])}")
     
     with col_pdf2:
         # Préparer les informations client
@@ -47,197 +64,287 @@ with st.container(border=True):
             'nom': principal_data.get('nom', ''),
             'prenom': principal_data.get('prenom', ''),
             'contact': principal_data.get('contact', ''),
-            'type_couverture': type_couverture_part,
-            'nb_enfants': nb_enfants_part if type_couverture_part == "Famille" else 0
         }
         
-        # Générer le PDF
+        # Préparer la liste des résultats au format attendu
+        resultats_list = []
+        
+        for idx, bareme_key in enumerate(baremes_affiches):
+            # Récupérer le résultat pour ce barème
+            resultat_data = resultats_multi[idx]
+            resultat = resultat_data['resultat']
+            
+            # Récupérer la configuration du barème
+            config_bareme = configurations_baremes.get(idx, {})
+            type_couv = config_bareme.get('type_couverture', 'Personne seule')
+            
+            # Ajouter à la liste
+            resultats_list.append({
+                'resultat': resultat,
+                'produit_key': bareme_key,
+                'produit_name': PRODUITS_PARTICULIERS_UI[bareme_key],
+                'type_couverture': type_couv
+            })
+        
+        # Générer le PDF comparatif
         try:
-            pdf_bytes = generer_pdf_cotation_particulier(
-                resultat=resultat,
-                produit_name=PRODUITS_PARTICULIERS_UI[produit_key_part],
+            pdf_bytes = generer_pdf_comparatif_particulier(
+                resultats_list=resultats_list,
                 client_info=client_info,
                 numero_devis=numero_devis
             )
             
             # Bouton de téléchargement
             st.download_button(
-                label="📥 Télécharger le PDF",
+                label="📥 PDF Comparatif",
                 data=pdf_bytes,
-                file_name=f"Cotation_{numero_devis}.pdf",
+                file_name=f"Comparatif_{numero_devis}.pdf",
                 mime="application/pdf",
                 type="primary",
                 use_container_width=True
             )
             
-            st.success("✅ PDF prêt à télécharger")
+            st.success("✅ PDF prêt !")
             
         except Exception as e:
-            st.error(f"❌ Erreur lors de la génération du PDF : {str(e)}")
+            st.error(f"❌ Erreur PDF : {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
 
 # ------------------------------------------------------------------------------
-# 3. EXEMPLE COMPLET D'INTÉGRATION DANS UNE SECTION
+# 3. EXEMPLE COMPLET AVEC CONTEXTE
 # ------------------------------------------------------------------------------
-
-# Voici un exemple complet de code à insérer après le calcul de la prime
 
 """
-# APRÈS LE CALCUL ET L'AFFICHAGE DU RÉSULTAT
+Voici un exemple complet de l'endroit où insérer ce code dans santecotation.py :
+"""
 
-if 'resultat_part' in st.session_state:
-    resultat = st.session_state['resultat_part']
+# APRÈS LE BOUTON "GÉNÉRER LA PROPOSITION COMMERCIALE"
+# Typiquement autour de la ligne 2730
+
+"""
+if 'resultats_part_multi' in st.session_state:
+    resultats_multi = st.session_state['resultats_part_multi']
+    baremes_affiches = st.session_state['baremes_selectionnes']
     
-    # Affichage du résultat
-    afficher_resultat(
-        resultat, 
-        PRODUITS_PARTICULIERS_UI[produit_key_part], 
-        TAUX_TAXE_PARTICULIER
-    )
+    # ... Affichage des résultats individuels ...
     
-    # === GÉNÉRATION DU PDF ===
+    # === FORÇAGE MANUEL (si présent) ===
+    # ... code du forçage manuel ...
+    
+    # === GÉNÉRATION DU PDF COMPARATIF === ⭐ INSÉRER ICI
     st.markdown("---")
-    st.markdown("### 📄 Document de Cotation")
+    st.markdown("### 📄 Document Comparatif PDF")
     
-    # Générer un numéro de devis unique si pas déjà fait
-    if 'numero_devis_part' not in st.session_state:
-        st.session_state['numero_devis_part'] = f"PART-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    if 'numero_devis_comparatif' not in st.session_state:
+        st.session_state['numero_devis_comparatif'] = f"COMP-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
     
-    numero_devis = st.session_state['numero_devis_part']
+    numero_devis = st.session_state['numero_devis_comparatif']
     
     with st.container(border=True):
-        col_info1, col_info2 = st.columns([3, 1])
+        st.info("💡 PDF comparatif intelligent - Regroupe automatiquement les cotations similaires")
         
-        with col_info1:
-            st.markdown(f"**📋 Devis N° :** `{numero_devis}`")
-            st.markdown(f"**👤 Client :** {principal_data['nom']} {principal_data['prenom']}")
-            st.markdown(f"**📦 Produit :** {PRODUITS_PARTICULIERS_UI[produit_key_part]}")
-            st.markdown(f"**💰 Prime TTC :** {format_currency(resultat['prime_ttc_totale'])}")
+        col1, col2 = st.columns([3, 1])
         
-        with col_info2:
-            # Préparer les informations
+        with col1:
+            st.markdown(f"**Devis :** `{numero_devis}`")
+            st.markdown(f"**Client :** {principal_data['nom']} {principal_data['prenom']}")
+            
+            # Compter combien de groupes seront créés
+            from collections import defaultdict
+            groupes = defaultdict(list)
+            for idx, bareme_key in enumerate(baremes_affiches):
+                config = configurations_baremes.get(idx, {})
+                type_couv = config.get('type_couverture', 'Personne seule')
+                key = (PRODUITS_PARTICULIERS_UI[bareme_key], type_couv)
+                groupes[key].append(idx)
+            
+            st.markdown(f"**Options dans le PDF :** {len(groupes)}")
+            
+            # Afficher le détail des groupes
+            for (produit, type_c), indices in groupes.items():
+                st.caption(f"• {produit} ({type_c}) : {len(indices)} cotation(s)")
+        
+        with col2:
+            # Préparer les données
             client_info = {
                 'nom': principal_data.get('nom', ''),
                 'prenom': principal_data.get('prenom', ''),
                 'contact': principal_data.get('contact', ''),
-                'type_couverture': type_couverture_part,
-                'nb_enfants': nb_enfants_part if type_couverture_part == "Famille" else 0
             }
+            
+            resultats_list = []
+            for idx, bareme_key in enumerate(baremes_affiches):
+                resultat_data = resultats_multi[idx]
+                config = configurations_baremes.get(idx, {})
+                
+                resultats_list.append({
+                    'resultat': resultat_data['resultat'],
+                    'produit_key': bareme_key,
+                    'produit_name': PRODUITS_PARTICULIERS_UI[bareme_key],
+                    'type_couverture': config.get('type_couverture', 'Personne seule')
+                })
             
             # Générer le PDF
             try:
-                pdf_bytes = generer_pdf_cotation_particulier(
-                    resultat=resultat,
-                    produit_name=PRODUITS_PARTICULIERS_UI[produit_key_part],
+                pdf_bytes = generer_pdf_comparatif_particulier(
+                    resultats_list=resultats_list,
                     client_info=client_info,
                     numero_devis=numero_devis
                 )
                 
-                # Bouton de téléchargement
                 st.download_button(
-                    label="📥 Télécharger PDF",
+                    label="📥 Télécharger",
                     data=pdf_bytes,
-                    file_name=f"Cotation_{numero_devis}.pdf",
+                    file_name=f"Comparatif_{numero_devis}.pdf",
                     mime="application/pdf",
                     type="primary",
                     use_container_width=True
                 )
                 
             except Exception as e:
-                st.error(f"Erreur PDF : {str(e)}")
-    
-    st.success("✅ Cotation prête - Document disponible en téléchargement")
+                st.error(f"Erreur : {str(e)}")
 """
 
 # ------------------------------------------------------------------------------
-# 4. POUR LES COTATIONS MULTIPLES (COMPARAISON DE BARÈMES)
+# 4. FORMAT DES DONNÉES REQUISES
 # ------------------------------------------------------------------------------
 
 """
-Si vous avez plusieurs barèmes comparés, vous pouvez générer un PDF pour chacun :
+Structure attendue pour resultats_list :
 
-for idx, bareme_key in enumerate(baremes_affiches):
-    resultat_data = resultats_multi[idx]
-    resultat = resultat_data['resultat']
-    
-    # Générer un numéro de devis unique pour ce barème
-    numero_devis = f"PART-{datetime.now().strftime('%Y%m%d')}-{idx+1:02d}-{uuid.uuid4().hex[:4].upper()}"
-    
-    # Préparer les infos
-    client_info = {
-        'nom': principal_data.get('nom', ''),
-        'prenom': principal_data.get('prenom', ''),
-        'contact': principal_data.get('contact', ''),
-        'type_couverture': type_couverture_part,
-        'nb_enfants': nb_enfants_part
-    }
-    
-    # Générer le PDF
-    pdf_bytes = generer_pdf_cotation_particulier(
-        resultat=resultat,
-        produit_name=PRODUITS_PARTICULIERS_UI[bareme_key],
-        client_info=client_info,
-        numero_devis=numero_devis
-    )
-    
-    # Bouton de téléchargement
-    st.download_button(
-        label=f"📥 PDF - {PRODUITS_PARTICULIERS_UI[bareme_key]}",
-        data=pdf_bytes,
-        file_name=f"Cotation_{PRODUITS_PARTICULIERS_UI[bareme_key]}_{numero_devis}.pdf",
-        mime="application/pdf",
-        key=f"download_pdf_{idx}"
-    )
+resultats_list = [
+    {
+        'resultat': {
+            'prime_nette_finale': 350000.0,
+            'accessoires': 10000.0,
+            'taxe': 28800.0,
+            'prime_lsp': 20000.0,
+            'prime_assist_psy': 35000.0,
+            'prime_ttc_totale': 443800.0,
+            'surprime_risques_taux': 15.0,  # Optionnel
+            'surprime_age_taux': 0.0,       # Optionnel
+            'affections_declarees': [],     # Optionnel
+            # ... autres champs du résultat
+        },
+        'produit_key': 'rubis_80',
+        'produit_name': '80% CI RUBIS',
+        'type_couverture': 'Personne seule'
+    },
+    # ... autres cotations
+]
+
+Structure client_info :
+
+client_info = {
+    'nom': 'KOUAME',
+    'prenom': 'Jean',
+    'contact': '+225 07 12 34 56 78'
+}
 """
 
 # ------------------------------------------------------------------------------
-# 5. NOTES D'IMPLÉMENTATION
+# 5. LOGIQUE DE REGROUPEMENT AUTOMATIQUE
 # ------------------------------------------------------------------------------
 
 """
-IMPORTANT :
+Le PDF regroupe automatiquement par (Produit, Type de Couverture) :
 
-1. Assurez-vous que pdf_generator.py est dans le même dossier que santecotation.py
+EXEMPLE 1 : Même produit, différentes personnes
+─────────────────────────────────────────────────
+Input : 
+- 80% CI RUBIS - Personne seule - Prime 350k
+- 80% CI RUBIS - Personne seule - Prime 360k
+- 80% CI RUBIS - Famille - Prime 800k
 
-2. Les dépendances nécessaires sont déjà dans requirements.txt :
-   - reportlab>=4.0.0
-   - Pillow>=10.0.0
+Output PDF :
+┌──────────────────┬──────────────────┐
+│ OPTION 1 (80%)   │ OPTION 2 (80%)   │
+│ Personne seule   │ Famille          │
+├──────────────────┼──────────────────┤
+│ Population: 2    │ Population: 1    │
+│ Prime: 350,000   │ Prime: 800,000   │
+│      + 360,000   │                  │
+│      = 710,000   │                  │
+└──────────────────┴──────────────────┘
 
-3. Structure des données requises :
+EXEMPLE 2 : Produits différents
+─────────────────────────────────
+Input :
+- 70% CI SAPHIR - Personne seule - Prime 280k
+- 80% CI RUBIS - Personne seule - Prime 350k
+- 80% CI RUBIS - Famille - Prime 800k
+
+Output PDF :
+┌──────────────┬──────────────┬──────────────┐
+│ OPTION 1     │ OPTION 2     │ OPTION 3     │
+│ (70%)        │ (80%)        │ (80%)        │
+│ Pers. seule  │ Pers. seule  │ Famille      │
+├──────────────┼──────────────┼──────────────┤
+│ Pop: 1       │ Pop: 1       │ Pop: 1       │
+│ 280,000      │ 350,000      │ 800,000      │
+└──────────────┴──────────────┴──────────────┘
+"""
+
+# ------------------------------------------------------------------------------
+# 6. PLACEMENT DANS SANTECOTATION.PY
+# ------------------------------------------------------------------------------
+
+"""
+EMPLACEMENT PRÉCIS :
+
+1. Cherchez la ligne contenant :
+   st.markdown("---")
+   if st.button("📝 GÉNÉRER LA PROPOSITION COMMERCIALE"...
+
+2. JUSTE AVANT ce bouton, ajoutez le code du PDF comparatif
+
+3. Structure finale :
    
-   resultat = {
-       'prime_nette_finale': float,
-       'accessoires': float,
-       'taxe': float,
-       'prime_lsp': float,
-       'prime_assist_psy': float,
-       'prime_ttc_totale': float,
-       'surprime_grossesse': float (optionnel),
-       'surprime_age_taux': float (optionnel),
-       'surprime_risques_taux': float (optionnel),
-       'affections_declarees': list (optionnel),
-       'bareme_special': bool (optionnel),
-       'facteurs': {
-           'duree_contrat': int,
-           'taux_taxe': float
-       }
-   }
+   # Affichage des résultats multi-barèmes
+   for idx, bareme_key in enumerate(baremes_affiches):
+       # ... affichage ...
    
-   client_info = {
-       'nom': str,
-       'prenom': str,
-       'contact': str,
-       'type_couverture': str,
-       'nb_enfants': int
-   }
-
-4. Personnalisation :
-   - Modifiez les couleurs dans _setup_custom_styles()
-   - Ajoutez votre logo dans _add_header()
-   - Personnalisez les mentions légales
-   - Ajustez les conditions particulières
-
-5. Pour tester localement :
-   streamlit run santecotation.py
+   # Section Forçage Manuel (si présente)
+   st.markdown("### ⚙️ Forçage Manuel...")
+   # ... code forçage ...
    
-   Le bouton de téléchargement PDF apparaîtra après le calcul de la prime.
+   # ⭐ NOUVEAU : PDF COMPARATIF (INSÉRER ICI)
+   st.markdown("---")
+   st.markdown("### 📄 Document Comparatif PDF")
+   # ... code PDF comparatif ...
+   
+   # Bouton proposition commerciale existant
+   st.markdown("---")
+   if st.button("📝 GÉNÉRER LA PROPOSITION COMMERCIALE"...
+"""
+
+# ------------------------------------------------------------------------------
+# 7. NOTES IMPORTANTES
+# ------------------------------------------------------------------------------
+
+"""
+✅ AVANTAGES :
+- Regroupement automatique intelligent
+- Réduction du nombre de colonnes
+- Affichage du détail + total
+- Format professionnel tableau comparatif
+- Population comptée automatiquement
+
+⚠️ ATTENTION :
+- Nécessite que configurations_baremes contienne 'type_couverture' pour chaque barème
+- Les résultats doivent contenir tous les champs nécessaires (voir format ci-dessus)
+- Tester avec différents scénarios avant déploiement
+
+🧪 TESTS RECOMMANDÉS :
+1. 1 barème seul
+2. 2 barèmes identiques, même type
+3. 2 barèmes identiques, types différents
+4. 3+ barèmes mixtes
+5. Barème spécial
+
+📊 DÉPENDANCES :
+- reportlab (déjà dans requirements.txt)
+- pdf_generator.py (nouveau module)
+- data.py (pour TARIFS_PARTICULIERS)
 """
